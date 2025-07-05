@@ -537,7 +537,7 @@ class SpooferGUI:
         self.is_app_closing = False
         self.last_video_frame = None
 
-        # --- NEW: Stores the name at the moment the proxy is activated ---
+        # --- Stores the name at the moment the proxy is activated ---
         self.name_at_proxy_start = None
 
         self.auto_scan_var = ctk.BooleanVar(value=False)
@@ -550,12 +550,11 @@ class SpooferGUI:
         self.tooltip_window = None
 
         self.main_ui_loaded_event = Event()
-        self.ui_initialized = False
+        self.ui_initialized = False # CRITICAL: Flag to check if UI widgets are created
 
         self.is_syncing_ui = False
         self.previous_frame = None # To store the last active frame before showing FAQ
 
-        # --- NEW: State variables for FAQ toggle and animation ---
         self.faq_visible = False
         self.is_animating = False
 
@@ -575,18 +574,14 @@ class SpooferGUI:
         # --- Startup Logic ---
         print(f"DEBUG: SpooferGUI.__init__: sys.argv = {sys.argv}", file=sys.stdout, flush=True)
         self.launched_minimized_by_startup = "--start-minimized" in sys.argv and PYSTRAY_AVAILABLE
-        # --- MODIFICATION: Check for startup argument to force auto-scan on. ---
         startup_auto_scan_requested = "--startup-auto-scan" in sys.argv
 
-        # If started by scheduler, force the auto-scan var to True for this session.
         if startup_auto_scan_requested:
             print("DEBUG: Startup auto-scan requested via command-line arg. Forcing auto-scan ON for this session.", file=sys.stdout, flush=True)
             self.auto_scan_var.set(True)
 
-        # If auto-scan is enabled (either by config or startup arg), start the background process.
         if self.auto_scan_var.get():
             print("DEBUG: Auto-scan is enabled. Starting background scanner.", file=sys.stdout, flush=True)
-            # We call the toggle function which will handle starting the thread
             self.on_auto_scan_toggle()
 
         if self.launched_minimized_by_startup:
@@ -594,27 +589,17 @@ class SpooferGUI:
             self.master.withdraw()
             self.create_tray_icon()
         else:
-            # Normal startup: Build the UI immediately and then show splash
             self.build_full_ui()
-
-            # Not starting minimized. Show window, then play splash immediately to cover loading.
-            self.master.attributes("-alpha", 1.0) # Make window visible
-
-            # --- Bring window to the front on startup ---
+            self.master.attributes("-alpha", 1.0)
             self.master.lift()
             self.master.attributes('-topmost', True)
             self.master.focus_force()
             self.master.after(100, lambda: self.master.attributes('-topmost', False))
-            # --- End bring window to the front ---
-
-            # Place splash frame on top
             self.splash_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
             self.gif_label.pack(fill="both", expand=True)
             self.splash_frame.tkraise()
-            # Play video
-            self.master.after(50, self._play_video) # Use a small delay to ensure the window is drawn before playback starts
+            self.master.after(50, self._play_video)
 
-        # Final setup
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.master.bind("<Unmap>", self.on_minimize)
         print("DEBUG: Exiting SpooferGUI __init__.", file=sys.stdout, flush=True)
@@ -622,41 +607,31 @@ class SpooferGUI:
     def build_full_ui(self):
         """Creates all the complex UI widgets on demand."""
         if self.ui_initialized:
-            return # Don't build it twice
+            return
         print("DEBUG: Building the full UI now.", file=sys.stdout, flush=True)
 
-        # This frame will have the rounded corners and the actual background color
         self.main_container = ctk.CTkFrame(self.master, corner_radius=30, fg_color=self.COLORS["bg"])
         self.main_container.pack(fill="both", expand=True)
 
-        # This frame holds the actual content, allowing the title bar to be separate
-        # from the main content area if needed, and is transparent itself.
         self.content_container = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.content_container.pack(fill="both", expand=True)
 
-        # Create custom title bar
         self._create_title_bar()
 
-        # --- Frames Setup ---
-        # Splash frame for video - NOW A CHILD OF main_container FOR ROUNDED CORNERS
         self.splash_frame = ctk.CTkFrame(self.main_container, fg_color="transparent", corner_radius=0)
         self.gif_label = ctk.CTkLabel(self.splash_frame, text="", fg_color="transparent")
 
-        # Main content frames (remain as children of content_container)
         self.main_frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
         self.setup_frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
         self.setup_frame_step2 = ctk.CTkFrame(self.content_container, fg_color="transparent")
-        self.faq_frame = ctk.CTkFrame(self.content_container, fg_color="transparent") # New FAQ frame
+        self.faq_frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
 
-        # Create all the widgets and bind events
         self._create_all_widgets()
 
-        # --- MODIFICATION: Set ui_initialized flag before calling post-load actions ---
-        # This ensures that subsequent functions like sync_startup_ui can run correctly.
+        # --- CRITICAL: Set ui_initialized flag AFTER all widgets are created ---
         self.ui_initialized = True
 
         self._post_main_ui_load_actions()
-
         print("DEBUG: UI build complete.", file=sys.stdout, flush=True)
 
     def _setup_theme(self):
@@ -676,48 +651,33 @@ class SpooferGUI:
             "text_secondary": "#8E8E93",
             "border": "#3A3A3C",
             "status_idle": "#636366",
-            "link_blue": "#64B5F6", # Added for hyperlinks
-            "warning_orange": "#FF9800" # New orange for warnings
+            "link_blue": "#64B5F6",
+            "warning_orange": "#FF9800"
         }
         print("DEBUG: Exiting _setup_theme.", file=sys.stdout, flush=True)
 
     def _setup_window(self):
         """Configure the main window's properties for a borderless design."""
         print("DEBUG: Entering _setup_window.", file=sys.stdout, flush=True)
-
-        # Set initial size
         window_width, window_height = 480, 600
-
-        # --- Center Window on Screen ---
-        self.master.update_idletasks()
         screen_width = self.master.winfo_screenwidth()
         screen_height = self.master.winfo_screenheight()
         x = (screen_width // 2) - (window_width // 2)
         y = (screen_height // 2) - (window_height // 2)
         self.master.geometry(f'{window_width}x{window_height}+{x}+{y}')
-
-        # --- LOCK WINDOW SIZE ---
         self.master.resizable(False, False)
         self.master.minsize(window_width, window_height)
         self.master.maxsize(window_width, window_height)
-
-        # --- Set Window Title ---
         self.master.title("Rocket League Name Spoofer")
-
-        # --- ADDED: Set the application icon for the window and taskbar ---
         try:
             self.master.iconbitmap(get_asset_path("icon.ico"))
         except Exception as e:
             print(f"ERROR: Failed to set application icon: {e}", file=sys.stderr, flush=True)
-
-        # --- BORDERLESS WINDOW SETUP ---
-        self.master.overrideredirect(True) # Remove title bar and borders
-
+        self.master.overrideredirect(True)
         TRANSPARENT_COLOR = '#010101'
         self.master.attributes("-transparentcolor", TRANSPARENT_COLOR)
         self.master.configure(fg_color=TRANSPARENT_COLOR)
-
-        self.master.attributes("-alpha", 0.0) # Start fully transparent, will be made visible before splash
+        self.master.attributes("-alpha", 0.0)
         print("DEBUG: Exiting _setup_window.", file=sys.stdout, flush=True)
 
     def _create_fonts(self):
@@ -742,35 +702,19 @@ class SpooferGUI:
         """Creates the custom title bar with drag support and window controls."""
         self.title_bar = ctk.CTkFrame(self.content_container, height=40, fg_color=self.COLORS["title_bar_bg"], corner_radius=0)
         self.title_bar.pack(fill="x", side="top")
-
         self.title_bar.bind("<ButtonPress-1>", self._start_move)
         self.title_bar.bind("<ButtonRelease-1>", self._stop_move)
         self.title_bar.bind("<B1-Motion>", self._do_move)
-
         title_label = ctk.CTkLabel(self.title_bar, text="ROCKET LEAGUE NAME SPOOFER", font=self.font_title_bar, text_color=self.COLORS["text_secondary"])
         title_label.place(relx=0.5, rely=0.5, anchor="center")
-
         title_label.bind("<ButtonPress-1>", self._start_move)
         title_label.bind("<ButtonRelease-1>", self._stop_move)
         title_label.bind("<B1-Motion>", self._do_move)
-
-        # --- FAQ Button (UPDATED) ---
-        faq_button = ctk.CTkButton(
-            self.title_bar, text="?", command=self.toggle_faq_screen, width=40, height=40,
-            font=ctk.CTkFont(size=16, weight="bold"), fg_color="transparent", hover_color=self.COLORS["border"], text_color=self.COLORS["text_secondary"]
-        )
+        faq_button = ctk.CTkButton(self.title_bar, text="?", command=self.toggle_faq_screen, width=40, height=40, font=ctk.CTkFont(size=16, weight="bold"), fg_color="transparent", hover_color=self.COLORS["border"], text_color=self.COLORS["text_secondary"])
         faq_button.pack(side="left", fill="y")
-
-        close_button = ctk.CTkButton(
-            self.title_bar, text="✕", command=self.on_closing, width=40, height=40,
-            font=ctk.CTkFont(size=16), fg_color="transparent", hover_color=self.COLORS["stop_red"], text_color=self.COLORS["text_secondary"]
-        )
+        close_button = ctk.CTkButton(self.title_bar, text="✕", command=self.on_closing, width=40, height=40, font=ctk.CTkFont(size=16), fg_color="transparent", hover_color=self.COLORS["stop_red"], text_color=self.COLORS["text_secondary"])
         close_button.pack(side="right", fill="y")
-
-        minimize_button = ctk.CTkButton(
-            self.title_bar, text="—", command=self.hide_window, width=40, height=40,
-            font=ctk.CTkFont(size=16, weight="bold"), fg_color="transparent", hover_color=self.COLORS["border"], text_color=self.COLORS["text_secondary"]
-        )
+        minimize_button = ctk.CTkButton(self.title_bar, text="—", command=self.hide_window, width=40, height=40, font=ctk.CTkFont(size=16, weight="bold"), fg_color="transparent", hover_color=self.COLORS["border"], text_color=self.COLORS["text_secondary"])
         minimize_button.pack(side="right", fill="y")
 
     def _start_move(self, event):
@@ -787,10 +731,7 @@ class SpooferGUI:
         self.master.geometry(f"+{new_x}+{new_y}")
 
     def _create_all_widgets(self):
-        """
-        Creates and lays out all main GUI and setup widgets.
-        This can be called from a background thread or directly.
-        """
+        """Creates and lays out all main GUI and setup widgets."""
         print("DEBUG: Creating all UI widgets...", file=sys.stdout, flush=True)
         # --- Main Frame Widgets ---
         self.main_frame_content = ctk.CTkFrame(self.main_frame, fg_color=self.COLORS["frame_bg"], corner_radius=12)
@@ -798,10 +739,7 @@ class SpooferGUI:
         self.main_frame_content.grid_columnconfigure(0, weight=1)
         self.title_label = ctk.CTkLabel(self.main_frame_content, text="SPOOFED DISPLAY NAME", font=self.font_main_title, text_color=self.COLORS["text_secondary"])
         self.new_name_entry = ctk.CTkEntry(self.main_frame_content, textvariable=self.new_name_var, font=self.font_entry, corner_radius=10, border_width=2, border_color=self.COLORS["border"], fg_color=self.COLORS["bg"], text_color=self.COLORS["text_primary"], justify="center", height=55)
-
-        # --- NEW: Warning label for name changes while proxy is active ---
         self.restart_warning_label = ctk.CTkLabel(self.main_frame_content, text="Restart Rocket League for name change to take effect", font=self.font_status, text_color=self.COLORS["warning_orange"])
-
         self.char_counter_label = ctk.CTkLabel(self.main_frame_content, text="0/32", font=self.font_char_counter, text_color=self.COLORS["status_idle"])
         self.toggle_button = ctk.CTkButton(self.main_frame_content, text="ACTIVATE", command=self.toggle_proxy_clicked, height=55, font=self.font_action_button, corner_radius=12, fg_color="transparent", border_width=2, border_color=self.COLORS["primary_green"], text_color=self.COLORS["primary_green"], hover_color=self.COLORS["frame_bg"])
         self.auto_scan_checkbox = ctk.CTkCheckBox(self.main_frame_content, text="Automatically attach to Rocket League", variable=self.auto_scan_var, font=self.font_auto_manage, text_color=self.COLORS["text_secondary"], checkbox_width=24, checkbox_height=24, corner_radius=7, fg_color=self.COLORS["primary_green"], hover_color=self.COLORS["primary_green_hover"], border_color=self.COLORS["border"], border_width=2)
@@ -812,169 +750,88 @@ class SpooferGUI:
         self.rl_status_indicator = ctk.CTkLabel(self.status_frame, text="●", font=ctk.CTkFont(size=20), text_color=self.COLORS["status_idle"])
         self.rl_status_label = ctk.CTkLabel(self.status_frame, text="Game: Not Running", text_color=self.COLORS["text_secondary"], font=self.font_status)
         self.task_scheduler_button = ctk.CTkButton(self.main_frame_content, text="Add/Remove from Startup", command=self.toggle_task_scheduler_clicked, height=45, font=self.font_startup_button, corner_radius=10, fg_color="transparent", hover_color=self.COLORS["frame_bg"], text_color=self.COLORS["text_secondary"], border_width=2, border_color=self.COLORS["border"])
-
-        # --- Setup Frame Widgets ---
         self.setup_title_label = ctk.CTkLabel(self.setup_frame, text="First-Time Setup", font=self.font_setup_title, text_color=self.COLORS["text_primary"])
         self.setup_description_label = ctk.CTkLabel(self.setup_frame, text="Welcome!\nTo intercept and edit Rocket League's HTTPS traffic, a local certificate must be installed. This is UNIQUE to your device and is a one-time process.", font=self.font_setup_text, text_color=self.COLORS["text_secondary"], wraplength=400, justify="center")
         self.begin_setup_button = ctk.CTkButton(self.setup_frame, text="BEGIN SETUP", command=self._start_setup_process, height=60, font=self.font_action_button, corner_radius=12, fg_color="transparent", border_width=2, border_color=self.COLORS["primary_green"], text_color=self.COLORS["primary_green"], hover_color=self.COLORS["frame_bg"])
-
-        # --- Setup Step 2 Frame Widgets ---
         self.setup_step2_title_label = ctk.CTkLabel(self.setup_frame_step2, text="Install Certificate", font=self.font_setup_title, text_color=self.COLORS["text_primary"])
         self.setup_instructions_label = ctk.CTkLabel(self.setup_frame_step2, text="1. A browser page to http://mitm.it has opened.\n2. Download and run the certificate for your OS.\n3. Install it into the 'Trusted Root Certification Authorities' store.\n4. When finished, click the button below.", font=self.font_setup_text, text_color=self.COLORS["text_secondary"], wraplength=400, justify="left")
         self.open_browser_button = ctk.CTkButton(self.setup_frame_step2, text="Re-open mitm.it", command=lambda: webbrowser.open_new_tab("http://mitm.it"), height=45, font=self.font_startup_button, corner_radius=10, fg_color="transparent", hover_color=self.COLORS["frame_bg"], text_color=self.COLORS["text_secondary"], border_width=2, border_color=self.COLORS["border"])
         self.finish_setup_button = ctk.CTkButton(self.setup_frame_step2, text="FINISH SETUP", command=self._finish_setup_process, height=60, font=self.font_action_button, corner_radius=12, fg_color="transparent", border_width=2, border_color=self.COLORS["primary_green"], text_color=self.COLORS["primary_green"], hover_color=self.COLORS["frame_bg"])
         self.setup_status_label = ctk.CTkLabel(self.setup_frame_step2, text="Status: Proxy running for certificate download...", fg_color="transparent", text_color=self.COLORS["primary_green"], font=self.font_status)
-
-        # --- FAQ Frame Widgets (MODIFIED) ---
         self.faq_content_frame = ctk.CTkFrame(self.faq_frame, fg_color=self.COLORS["frame_bg"], corner_radius=12)
         self.faq_content_frame.pack(pady=20, padx=20, fill="both", expand=True)
         self.faq_content_frame.grid_columnconfigure(0, weight=1)
-
         faq_title = ctk.CTkLabel(self.faq_content_frame, text="Frequently Asked Questions", font=self.font_setup_title, text_color=self.COLORS["text_primary"])
         faq_title.grid(row=0, column=0, pady=(15, 20), padx=20, sticky="ew")
-
         faq_scrollable_frame = ctk.CTkScrollableFrame(self.faq_content_frame, fg_color="transparent")
         faq_scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         self.faq_content_frame.grid_rowconfigure(1, weight=1)
         faq_scrollable_frame.grid_columnconfigure(0, weight=1)
-
-        faq_data = {
-            "Q1: How do I use this?": "A: Enter a new name, press 'Activate', THEN open Rocket League and enjoy your new name!\n\nIf you'd like to make it even easier, check the box to automatically detect whenever Rocket League is opened on your behalf and press 'Run automatically on Startup' to launch this program in the background everytime you turn on your PC for 'Set-and-forget' name spoofing.",
-            "Q2: It's not working!": "A: Ensure you've PROPERLY completed the first-time setup to install the mitmproxy certificate. If it still fails, make sure no other proxy or VPN is running. Restarting the app and your game can also solve issues.\n\nFor persistent problems, check the log file in %APPDATA%/RLNameSpoofer. If all else fails, try using an LLM (ChatGPT, Gemini, etc.) to help solve the problem, or join the [Kakapo Labs Discord server](https://discord.gg/hXAVPfYHUN).",
-            "Q3: Will Psyonix ban me?": "A: It is highly unlikely. This spoofer does not give any (real) competitive advantage. However, like with all third-party tools, use it at your own discretion, especially ones that affect the experience of other players like this one.\nPsyonix has a history of being INCREDIBLY relaxed in how they enforce their modding rules, but nobody knows what the future may hold. Anyone who says otherwise is likely lying and trying to sell you a product; there is ALWAYS some risk involved when modding online games.",
-            "Q4: Why does this program need admin privileges?": "A: Administrator privileges are required to modify Windows proxy settings, which forces Rocket League's internet traffic to run through this program. It's also needed to add the app to the Windows Task Scheduler for automatic startup.",
-            "Q5: I paid money for this!": "A: Sorry, amigo, but if you spent money on this, you've been swindled (it happens to the best of us, don't feel too bad). All of my creations under Kakapo Labs have been and will always be free and available from my GitHub. I want to build resources to help people have fun, not to scam kids out of their pocket money. If you have paid money for this, I'd recommend requesting a refund from your bank IMMEDIATELY. As for how you'll get your revenge, I'll leave that up to you.",
-            "Q6: Is this safe?": "A: Yes. The program is open-source on [GitHub](https://github.com/Kakapo-Labs/RL-Spoofer-GUI) and only modifies traffic locally on your computer. It does not inject code into the game or alter game files. Don't just take my word for it; go check the source code for yourself. Never trust anyone handing out free, closed-source .exe files, no matter how tempting."
-        }
-
+        faq_data = {"Q1: How do I use this?": "A: Enter a new name, press 'Activate', THEN open Rocket League and enjoy your new name!\n\nIf you'd like to make it even easier, check the box to automatically detect whenever Rocket League is opened on your behalf and press 'Run automatically on Startup' to launch this program in the background everytime you turn on your PC for 'Set-and-forget' name spoofing.", "Q2: It's not working!": "A: Ensure you've PROPERLY completed the first-time setup to install the mitmproxy certificate. If it still fails, make sure no other proxy or VPN is running. Restarting the app and your game can also solve issues.\n\nFor persistent problems, check the log file in %APPDATA%/RLNameSpoofer. If all else fails, try using an LLM (ChatGPT, Gemini, etc.) to help solve the problem, or join the [Kakapo Labs Discord server](https://discord.gg/hXAVPfYHUN).", "Q3: Will Psyonix ban me?": "A: It is highly unlikely. This spoofer does not give any (real) competitive advantage. However, like with all third-party tools, use it at your own discretion, especially ones that affect the experience of other players like this one.\nPsyonix has a history of being INCREDIBLY relaxed in how they enforce their modding rules, but nobody knows what the future may hold. Anyone who says otherwise is likely lying and trying to sell you a product; there is ALWAYS some risk involved when modding online games.", "Q4: Why does this program need admin privileges?": "A: Administrator privileges are required to modify Windows proxy settings, which forces Rocket League's internet traffic to run through this program. It's also needed to add the app to the Windows Task Scheduler for automatic startup.", "Q5: I paid money for this!": "A: Sorry, amigo, but if you spent money on this, you've been swindled (it happens to the best of us, don't feel too bad). All of my creations under Kakapo Labs have been and will always be free and available from my GitHub. I want to build resources to help people have fun, not to scam kids out of their pocket money. If you have paid money for this, I'd recommend requesting a refund from your bank IMMEDIATELY. As for how you'll get your revenge, I'll leave that up to you.", "Q6: Is this safe?": "A: Yes. The program is open-source on [GitHub](https://github.com/Kakapo-Labs/RL-Spoofer-GUI) and only modifies traffic locally on your computer. It does not inject code into the game or alter game files. Don't just take my word for it; go check the source code for yourself. Never trust anyone handing out free, closed-source .exe files, no matter how tempting."}
         q_labels = []
         for i, (question, answer) in enumerate(faq_data.items()):
-            # Create the question label
             q_label = ctk.CTkLabel(faq_scrollable_frame, text=question, font=self.font_faq_question, text_color=self.COLORS["primary_green"], justify="left", anchor="w")
             q_label.grid(row=i*2, column=0, sticky="ew", padx=15, pady=(20, 5))
-            q_labels.append(q_label) # Add to list for dynamic wrapping
-
-            # Create a Textbox for the answer to handle wrapping and hyperlinks
-            a_textbox = ctk.CTkTextbox(faq_scrollable_frame,
-                                       font=self.font_faq_answer,
-                                       text_color=self.COLORS["text_secondary"],
-                                       wrap="word",
-                                       fg_color="transparent",
-                                       border_width=0,
-                                       activate_scrollbars=False)
+            q_labels.append(q_label)
+            a_textbox = ctk.CTkTextbox(faq_scrollable_frame, font=self.font_faq_answer, text_color=self.COLORS["text_secondary"], wrap="word", fg_color="transparent", border_width=0, activate_scrollbars=False)
             a_textbox.grid(row=i*2 + 1, column=0, sticky="ew", padx=15, pady=(0, 15))
-            a_textbox.configure(state="normal") # Enable to insert text
-
+            a_textbox.configure(state="normal")
             link_map = {}
             link_pattern = re.compile(r'\[([^\]]+)\]\((https?://[^\s\)]+)\)')
             last_end = 0
-
-            # Find all links and insert text and tags
             for match_num, match in enumerate(link_pattern.finditer(answer)):
                 start, end = match.span()
                 display_text = match.group(1)
                 link_url = match.group(2)
                 tag_name = f"link_{i}_{match_num}"
-
                 a_textbox.insert("end", answer[last_end:start])
                 a_textbox.insert("end", display_text, tag_name)
                 link_map[tag_name] = link_url
                 last_end = end
-
             a_textbox.insert("end", answer[last_end:])
-
-            # Configure tags for hyperlink appearance and behavior
             for tag_name, url in link_map.items():
                 a_textbox.tag_config(tag_name, foreground=self.COLORS["link_blue"], underline=True)
-
-                # Create a closure to capture the correct URL for the handler
                 def make_link_handler(url_to_open):
                     return lambda event: webbrowser.open_new(url_to_open)
-
                 a_textbox.tag_bind(tag_name, "<Button-1>", make_link_handler(url))
                 a_textbox.tag_bind(tag_name, "<Enter>", lambda e, tb=a_textbox: tb.configure(cursor="hand2"))
                 a_textbox.tag_bind(tag_name, "<Leave>", lambda e, tb=a_textbox: tb.configure(cursor=""))
-
-            a_textbox.configure(state="disabled") # Make it read-only
-
-            # --- REVISED CODE TO DYNAMICALLY SET TEXTBOX HEIGHT ---
-            a_textbox.update_idletasks() # Ensure text is processed and wrapped
-
+            a_textbox.configure(state="disabled")
+            a_textbox.update_idletasks()
             try:
-                # Get the number of display lines
                 num_lines = int(a_textbox.index("end-1c").split('.')[0])
-
-                # Get font and padding details from the widget
                 font = a_textbox.cget("font")
                 line_height = font.metrics("linespace")
                 border_spacing = a_textbox.cget("border_spacing")
-                # Get vertical padding/spacing inside the textbox
                 spacing1 = a_textbox.cget("spacing1")
                 spacing3 = a_textbox.cget("spacing3")
-
-                # Calculate the required height
-                # Height = (lines * space_per_line) + internal_text_padding + external_border_padding
                 required_height = (num_lines * line_height) + spacing1 + spacing3 + (2 * border_spacing)
-
-                # Set the calculated height
                 a_textbox.configure(height=required_height)
-
             except (tk.TclError, ValueError) as e:
-                # Handle cases where the textbox is empty or index is invalid
                 print(f"DEBUG: Could not calculate height for a FAQ answer, using default. Error: {e}", file=sys.stdout, flush=True)
-            # --- END OF REVISED CODE ---
-
-        # Function to dynamically update wraplength of question labels
         def update_wraplength(event):
-            new_wraplength = event.width - 40 # Subtract padding
+            new_wraplength = event.width - 40
             for label in q_labels:
                 label.configure(wraplength=new_wraplength)
-
         faq_scrollable_frame.bind('<Configure>', update_wraplength)
-
-        # The back button now also calls toggle_faq_screen
         back_button = ctk.CTkButton(self.faq_content_frame, text="← Back", command=self.toggle_faq_screen, height=45, font=self.font_startup_button, corner_radius=10, fg_color="transparent", hover_color=self.COLORS["frame_bg"], text_color=self.COLORS["text_secondary"], border_width=2, border_color=self.COLORS["border"])
         back_button.grid(row=2, column=0, pady=(10, 15), padx=20, sticky="sew")
-
-
-        # --- Layout Grids ---
         self.title_label.grid(row=0, column=0, pady=(15, 5), padx=20, sticky="ew")
         self.new_name_entry.grid(row=1, column=0, pady=0, padx=20, sticky="ew")
-
-        # --- NEW/MODIFIED LAYOUT for warning and char counter ---
         self.restart_warning_label.grid(row=2, column=0, pady=(4, 0), padx=25, sticky="w")
-        self.restart_warning_label.grid_remove() # Hide initially
+        self.restart_warning_label.grid_remove()
         self.char_counter_label.grid(row=2, column=0, pady=(4, 15), padx=25, sticky="e")
-
         self.toggle_button.grid(row=3, column=0, pady=5, padx=20, sticky="ew")
         self.auto_scan_checkbox.grid(row=4, column=0, pady=15, padx=20, sticky="w")
         self.status_frame.grid(row=5, column=0, pady=10, padx=20, sticky="ew")
-        self.main_frame_content.grid_rowconfigure(6, weight=1) # Spacer row
+        self.main_frame_content.grid_rowconfigure(6, weight=1)
         self.task_scheduler_button.grid(row=7, column=0, pady=(10, 5), padx=20, sticky="sew")
-
-        # --- NEW: Footer section ---
-        # This frame holds the buttons
         buttons_footer_frame = ctk.CTkFrame(self.main_frame_content, fg_color="transparent")
         buttons_footer_frame.grid(row=8, column=0, pady=(5, 0), padx=20, sticky="ew")
-        buttons_footer_frame.grid_columnconfigure(0, weight=1) # Left button
-        buttons_footer_frame.grid_columnconfigure(1, weight=1) # Right button
-
-        self.reinstall_menu_button = ctk.CTkButton(
-            buttons_footer_frame,
-            text="Re-run Setup",
-            command=self.reinstall_certificate,
-            font=ctk.CTkFont(family="Rubik", size=10),
-            fg_color="transparent",
-            text_color=self.COLORS["text_secondary"],
-            hover_color=self.COLORS["border"],
-            width=80,
-            height=24,
-            border_width=1,
-            border_color=self.COLORS["border"]
-        )
+        buttons_footer_frame.grid_columnconfigure(0, weight=1)
+        buttons_footer_frame.grid_columnconfigure(1, weight=1)
+        self.reinstall_menu_button = ctk.CTkButton(buttons_footer_frame, text="Re-run Setup", command=self.reinstall_certificate, font=ctk.CTkFont(family="Rubik", size=10), fg_color="transparent", text_color=self.COLORS["text_secondary"], hover_color=self.COLORS["border"], width=80, height=24, border_width=1, border_color=self.COLORS["border"])
         self.reinstall_menu_button.grid(row=0, column=0, sticky="w")
-
-        # Load discord icon
         discord_icon = None
         if PYSTRAY_AVAILABLE:
             try:
@@ -983,32 +840,14 @@ class SpooferGUI:
             except Exception as e:
                 print(f"WARNING: Could not load discord.png: {e}. Using text icon instead.", file=sys.stderr, flush=True)
                 discord_icon = None
-
-        self.discord_button = ctk.CTkButton(
-            buttons_footer_frame,
-            text="" if discord_icon else "D",
-            image=discord_icon,
-            command=lambda: webbrowser.open_new_tab("https://discord.gg/hXAVPfYHUN"),
-            width=24,
-            height=24,
-            border_width=0,
-            fg_color="transparent",
-            text_color=self.COLORS["text_secondary"],
-            hover_color=self.COLORS["border"],
-        )
+        self.discord_button = ctk.CTkButton(buttons_footer_frame, text="" if discord_icon else "D", image=discord_icon, command=lambda: webbrowser.open_new_tab("https://discord.gg/hXAVPfYHUN"), width=24, height=24, border_width=0, fg_color="transparent", text_color=self.COLORS["text_secondary"], hover_color=self.COLORS["border"])
         self.discord_button.grid(row=0, column=1, sticky="e")
-
-        # This frame holds the centered credits below the buttons
         credits_footer_frame = ctk.CTkFrame(self.main_frame_content, fg_color="transparent")
         credits_footer_frame.grid(row=9, column=0, pady=(2, 10), padx=20, sticky="ew")
-
         self.credit_label = ctk.CTkLabel(credits_footer_frame, text="GUI and Reverse Engineering by Kakpo", font=self.font_credit, text_color=self.COLORS["status_idle"])
         self.credit_label.pack()
-
         self.version_label = ctk.CTkLabel(credits_footer_frame, text=f"Version {APP_VERSION}", font=self.font_credit, text_color=self.COLORS["status_idle"])
         self.version_label.pack()
-        # --- END NEW WIDGETS ---
-
         self.proxy_status_indicator.grid(row=0, column=0, padx=(15, 5), pady=5)
         self.status_label.grid(row=0, column=1, padx=(0, 15), pady=5, sticky="w")
         self.rl_status_indicator.grid(row=1, column=0, padx=(15, 5), pady=5)
@@ -1026,9 +865,7 @@ class SpooferGUI:
         print("DEBUG: Finished creating UI widgets.", file=sys.stdout, flush=True)
 
     def _post_main_ui_load_actions(self):
-        """
-        Actions to perform on the main thread after the main UI widgets have been loaded.
-        """
+        """Actions to perform on the main thread after the main UI widgets have been loaded."""
         print("DEBUG: Main thread: Performing post-main-UI-load actions.", file=sys.stdout, flush=True)
         self.char_counter_label.bind("<Enter>", self._show_tooltip)
         self.char_counter_label.bind("<Leave>", self._hide_tooltip)
@@ -1036,7 +873,6 @@ class SpooferGUI:
         self.new_name_var.trace_add("write", self.on_new_name_change)
         self.new_name_var.trace_add("write", self._update_char_counter)
         self._update_char_counter()
-
         self._check_and_show_initial_screen()
         self.main_ui_loaded_event.set()
         print("DEBUG: Main thread: Post-main-UI-load actions complete.", file=sys.stdout, flush=True)
@@ -1044,31 +880,24 @@ class SpooferGUI:
     def _play_video(self):
         """Starts the video playback."""
         print("DEBUG: Entering _play_video.", file=sys.stdout, flush=True)
-
         if not CV2_AVAILABLE:
             print("ERROR: OpenCV (cv2) is not installed. Cannot play video. Skipping splash.", file=sys.stderr, flush=True)
             self.splash_frame.place_forget()
             return
-
-        # Use the get_asset_path helper function to find the video
         video_path = get_asset_path("splash.mov")
-
         if not os.path.exists(video_path):
             print(f"ERROR: splash.mov not found at path: {video_path}. Skipping splash.", file=sys.stderr, flush=True)
             self.splash_frame.place_forget()
             return
-
         try:
             self.video_capture = cv2.VideoCapture(video_path)
             if not self.video_capture.isOpened():
                 print(f"ERROR: Could not open video file: {video_path}", file=sys.stderr, flush=True)
                 self.splash_frame.place_forget()
                 return
-
             fps = self.video_capture.get(cv2.CAP_PROP_FPS)
             self.video_delay = int(1000 / fps) if fps > 0 else 33
             self._update_video_frame()
-
         except Exception as e:
             print(f"ERROR: Failed to start video playback: {e}", file=sys.stderr, flush=True)
             if hasattr(self, 'video_capture'):
@@ -1079,25 +908,19 @@ class SpooferGUI:
         """Reads, resizes, and displays the next frame of the video."""
         if not hasattr(self, 'video_capture') or not self.video_capture.isOpened():
             return
-
         ret, frame = self.video_capture.read()
-
         if ret:
             window_width = self.master.winfo_width()
             window_height = self.master.winfo_height()
-
             if window_height <= 0 or window_width <= 0:
                 self.master.after(20, self._update_video_frame)
                 return
-
             resized_frame = cv2.resize(frame, (window_width, window_height), interpolation=cv2.INTER_AREA)
             frame_rgba = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGBA)
             self.last_video_frame = Image.fromarray(frame_rgba)
             imgtk = ImageTk.PhotoImage(image=self.last_video_frame)
-
             self.gif_label.configure(image=imgtk)
             self.gif_label.image = imgtk
-
             self.master.after(self.video_delay, self._update_video_frame)
         else:
             print("DEBUG: Video playback finished. Starting transition.", file=sys.stdout, flush=True)
@@ -1105,13 +928,10 @@ class SpooferGUI:
             self.master.after(100, self._transition_from_splash)
 
     def _transition_from_splash(self, alpha=255):
-        """
-        Fades out the last frame of the splash video to reveal the UI underneath.
-        """
+        """Fades out the last frame of the splash video to reveal the UI underneath."""
         if not self.main_ui_loaded_event.is_set():
             self.master.after(100, self._transition_from_splash, alpha)
             return
-
         if alpha > 0:
             if self.last_video_frame:
                 img_copy = self.last_video_frame.copy()
@@ -1128,14 +948,10 @@ class SpooferGUI:
     def _check_and_show_initial_screen(self):
         """Determines whether to show the main GUI or the first-time setup screen."""
         print("DEBUG: Entering _check_and_show_initial_screen.", file=sys.stdout, flush=True)
-        # Use the updated FIRST_RUN_FLAG_FILE path
         has_completed_setup = os.path.exists(FIRST_RUN_FLAG_FILE)
         print(f"DEBUG: First run flag file '{FIRST_RUN_FLAG_FILE}' exists: {has_completed_setup}", file=sys.stdout, flush=True)
-
         self.update_status_after_stop()
-
         self.sync_startup_ui()
-
         if has_completed_setup or self.launched_minimized_by_startup:
             print("DEBUG: Showing main GUI.", file=sys.stdout, flush=True)
             self._show_main_gui()
@@ -1147,34 +963,30 @@ class SpooferGUI:
     def _show_first_time_setup_screen(self):
         self.main_frame.pack_forget()
         self.setup_frame_step2.pack_forget()
-        self.faq_frame.place_forget() # Use place_forget for animated frame
+        self.faq_frame.place_forget()
         self.setup_frame.pack(pady=0, padx=0, fill="both", expand=True)
         self.previous_frame = self.setup_frame
 
     def _show_setup_step2_screen(self):
         self.setup_frame.pack_forget()
         self.main_frame.pack_forget()
-        self.faq_frame.place_forget() # Use place_forget for animated frame
+        self.faq_frame.place_forget()
         self.setup_frame_step2.pack(pady=0, padx=0, fill="both", expand=True)
         self.previous_frame = self.setup_frame_step2
 
     def _show_main_gui(self):
         self.setup_frame.pack_forget()
         self.setup_frame_step2.pack_forget()
-        self.faq_frame.place_forget() # Use place_forget for animated frame
+        self.faq_frame.place_forget()
         self.main_frame.pack(pady=0, padx=0, fill="both", expand=True)
         self.previous_frame = self.main_frame
 
-    # --- NEW: Method to toggle the FAQ screen with animation ---
     def toggle_faq_screen(self):
         """Toggles the visibility of the FAQ screen with a slide animation."""
         if self.is_animating:
-            return  # Prevent clicks during animation
-
+            return
         self.is_animating = True
         if not self.faq_visible:
-            # --- SHOW FAQ ---
-            # Determine which frame is currently visible to set as previous_frame
             if self.main_frame.winfo_ismapped():
                 self.previous_frame = self.main_frame
             elif self.setup_frame.winfo_ismapped():
@@ -1182,125 +994,79 @@ class SpooferGUI:
             elif self.setup_frame_step2.winfo_ismapped():
                 self.previous_frame = self.setup_frame_step2
             else:
-                self.previous_frame = self.main_frame # Fallback
-
-            # Hide the current frame before starting animation
+                self.previous_frame = self.main_frame
             if self.previous_frame:
                 self.previous_frame.pack_forget()
-
             self.faq_visible = True
             self._animate_faq_in()
         else:
-            # --- HIDE FAQ ---
             self.faq_visible = False
             self._animate_faq_out()
 
-    # --- NEW: Animation for sliding the FAQ screen in ---
     def _animate_faq_in(self, step=0):
         """Animates the FAQ frame sliding in from the top."""
-        total_steps = 60  # Increased for smoother animation
-        animation_delay = 5  # Decreased for more frames
-
+        total_steps = 60
+        animation_delay = 5
         if step == 0:
-            # Initial placement above the window, ready to slide in
             self.faq_frame.place(relx=0, rely=-1, relwidth=1, relheight=1)
-
         if step <= total_steps:
-            # Use a more pronounced ease-out function for a smoother stop
             ratio = step / total_steps
-            eased_ratio = 1 - (1 - ratio) ** 5  # Quintic ease-out
+            eased_ratio = 1 - (1 - ratio) ** 5
             new_y = -1 + eased_ratio
-
             self.faq_frame.place_configure(rely=new_y)
             self.master.after(animation_delay, self._animate_faq_in, step + 1)
         else:
-            # Animation finished, lock in final position
             self.faq_frame.place_configure(rely=0)
             self.is_animating = False
 
-    # --- NEW: Animation for sliding the FAQ screen out ---
     def _animate_faq_out(self, step=0):
         """Animates the FAQ frame sliding out to the top."""
-        total_steps = 60  # Increased for smoother animation
-        animation_delay = 5  # Decreased for more frames
-
+        total_steps = 60
+        animation_delay = 5
         if step <= total_steps:
-            # Use a more pronounced ease-out function for a smoother start
             ratio = step / total_steps
-            eased_ratio = 1 - (1 - ratio) ** 5  # Quintic ease-out
+            eased_ratio = 1 - (1 - ratio) ** 5
             new_y = 0 - eased_ratio
-
             self.faq_frame.place_configure(rely=new_y)
             self.master.after(animation_delay, self._animate_faq_out, step + 1)
         else:
-            # Animation finished, hide the frame and show the previous one
             self.faq_frame.place_forget()
             if self.previous_frame:
                 self.previous_frame.pack(pady=0, padx=0, fill="both", expand=True)
             else:
-                # Fallback to main GUI if something goes wrong
                 self._show_main_gui()
             self.is_animating = False
 
     def reinstall_certificate(self):
-        """
-        Allows the user to re-run the first-time setup by deleting the setup completion flag
-        and resetting associated settings for a clean re-installation.
-        """
+        """Allows the user to re-run the first-time setup."""
         print("DEBUG: User initiated certificate re-installation.", file=sys.stdout, flush=True)
-        confirmed = messagebox.askyesno(
-            "Re-run Setup?",
-            "This will take you back to the first-time setup screen to reinstall the certificate.\n\n"
-            "This will also turn OFF 'auto-attach' and 'run on startup' settings.\n\n"
-            "Do you want to continue?",
-            icon='warning'
-        )
-
+        confirmed = messagebox.askyesno("Re-run Setup?", "This will take you back to the first-time setup screen to reinstall the certificate.\n\nThis will also turn OFF 'auto-attach' and 'run on startup' settings.\n\nDo you want to continue?", icon='warning')
         if not confirmed:
             print("DEBUG: User cancelled certificate re-installation.", file=sys.stdout, flush=True)
             return
-
-        # Disable the button to prevent double-clicks
         self.reinstall_menu_button.configure(state=tk.DISABLED, text="Resetting...")
-
         def reset_flow():
-            # Step 1: Stop the proxy if it's running
             if self.is_proxy_running:
                 print("DEBUG: Proxy is running, stopping it before resetting setup.", file=sys.stdout, flush=True)
                 self._stop_proxy_operations(is_app_closing=False)
-                # Now we need to wait for it to actually stop.
                 self.master.after(100, wait_for_proxy_to_stop)
             else:
-                # If proxy is not running, just proceed to the next step
                 perform_full_reset()
-
         def wait_for_proxy_to_stop():
             if not self.is_proxy_running:
-                # Proxy has stopped, now we can proceed
                 perform_full_reset()
             else:
-                # Still waiting...
                 self.master.after(100, wait_for_proxy_to_stop)
-
         def perform_full_reset():
             print("DEBUG: Performing full reset for re-installation.", file=sys.stdout, flush=True)
-
-            # --- Resetting settings for a clean reinstall ---
             print("DEBUG: Resetting auto-scan and startup task settings.", file=sys.stdout, flush=True)
-
-            # 1. Functionally disable auto-scan.
-            # This sets the variable, stops the scanning thread, and saves the config via the toggle function.
             self.auto_scan_var.set(False)
             self.on_auto_scan_toggle()
             print("DEBUG: Auto-scan functionally disabled.", file=sys.stdout, flush=True)
-
-            # 2. Remove the task from Windows Task Scheduler if it exists
             if _remove_task_from_scheduler_sync():
                 print("DEBUG: Successfully removed task from scheduler (if it existed).", file=sys.stdout, flush=True)
             else:
                 print("WARNING: Failed to remove task from scheduler. May require admin rights.", file=sys.stderr, flush=True)
-
-            # 3. Remove the flag file
             try:
                 if os.path.exists(FIRST_RUN_FLAG_FILE):
                     os.remove(FIRST_RUN_FLAG_FILE)
@@ -1308,27 +1074,17 @@ class SpooferGUI:
             except OSError as e:
                 print(f"ERROR: Failed to remove first run flag file: {e}", file=sys.stderr, flush=True)
                 messagebox.showerror("Error", f"Could not remove the setup flag file.\nError: {e}")
-                # Re-enable the button on failure
                 self.reinstall_menu_button.configure(state=tk.NORMAL, text="Re-run Setup")
                 return
-
-            # 4. Transition to the setup screen
             self._show_first_time_setup_screen()
-
-            # 5. Sync the startup button UI to reflect the change
             self.sync_startup_ui()
-
-            # 6. Re-enable the button for future use (though it won't be visible on the setup screen)
             self.reinstall_menu_button.configure(state=tk.NORMAL, text="Re-run Setup")
-
-        # Start the process
         self.master.after(50, reset_flow)
 
     def _start_setup_process(self):
         print("DEBUG: Beginning setup process: Starting proxy.", file=sys.stdout, flush=True)
         self.begin_setup_button.configure(state=tk.DISABLED, text="STARTING...")
         self._start_proxy_operations(is_setup_process=True)
-
         def wait_for_proxy_and_open_browser():
             if mitmproxy_fully_running_event.is_set():
                 self._show_setup_step2_screen()
@@ -1351,11 +1107,9 @@ class SpooferGUI:
         self.finish_setup_button.configure(state=tk.DISABLED, text="FINISHING...")
         self.setup_status_label.configure(text="Status: Shutting down proxy...", text_color=self.COLORS["text_secondary"])
         self._stop_proxy_operations(is_app_closing=False)
-
         def wait_for_proxy_shutdown_and_transition():
             if not self.is_proxy_running:
                 try:
-                    # Use the updated FIRST_RUN_FLAG_FILE path
                     with open(FIRST_RUN_FLAG_FILE, 'w') as f: f.write("setup_complete")
                 except Exception as e:
                     messagebox.showwarning("File Write Error", "Could not save completion status. You might see this setup screen again.")
@@ -1372,28 +1126,24 @@ class SpooferGUI:
         else: self._start_proxy_operations()
 
     def _start_proxy_operations(self, is_setup_process=False):
-        # --- NEW CERTIFICATE CHECK ---
         if not is_setup_process and not is_mitmproxy_cert_installed():
             msg = ("Mitmproxy certificate not found or not installed correctly in the Trusted Root store.\n\n"
                    "Please run the first-time setup again from the main window to install it. If you have already done this, try restarting the application.")
             self.master.after(0, lambda: messagebox.showerror("Certificate Missing", msg))
-            if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+            if self.ui_initialized and self.main_frame.winfo_ismapped():
                 self.status_label.configure(text="Proxy: Cert Missing", text_color=self.COLORS["stop_red"])
                 self.proxy_status_indicator.configure(text_color=self.COLORS["stop_red"])
-                # Re-enable controls so the user is not stuck
                 self.toggle_button.configure(state=tk.NORMAL)
                 self.auto_scan_checkbox.configure(state=tk.NORMAL)
             self.is_proxy_running = False
             if not self.is_app_closing: self.shutdown_complete_event.set()
             return
-        # --- END OF NEW CHECK ---
-
         global mitmproxy_thread_ref
         if self.is_proxy_running: return
         if is_port_in_use(MITMPROXY_LISTEN_HOST, MITMPROXY_LISTEN_PORT):
             msg = f"Port {MITMPROXY_LISTEN_PORT} is already in use. Cannot start proxy."
             self.master.after(0, lambda msg=msg: messagebox.showerror("Port in Use", msg))
-            if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+            if self.ui_initialized and self.main_frame.winfo_ismapped():
                 self.status_label.configure(text="Proxy: Port in use", text_color=self.COLORS["stop_red"])
                 self.proxy_status_indicator.configure(text_color=self.COLORS["stop_red"])
                 self.toggle_button.configure(state=tk.NORMAL)
@@ -1402,14 +1152,14 @@ class SpooferGUI:
             return
 
         new_name = self.new_name_var.get() or DEFAULT_CONFIG["last_spoof_name"]
-        if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+        if self.ui_initialized and self.main_frame.winfo_ismapped():
             self.status_label.configure(text="Proxy: Starting...", text_color=self.COLORS["text_secondary"])
             self.proxy_status_indicator.configure(text_color=self.COLORS["text_secondary"])
             self.toggle_button.configure(state=tk.DISABLED)
             self.auto_scan_checkbox.configure(state=tk.DISABLED)
         if not self.is_app_closing: self.shutdown_complete_event.clear()
         if not set_system_proxy(MITMPROXY_LISTEN_HOST, MITMPROXY_LISTEN_PORT, self.master):
-            if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+            if self.ui_initialized and self.main_frame.winfo_ismapped():
                 self.status_label.configure(text="Proxy: Failed", text_color=self.COLORS["stop_red"])
                 self.proxy_status_indicator.configure(text_color=self.COLORS["stop_red"])
                 self.toggle_button.configure(state=tk.NORMAL)
@@ -1429,7 +1179,7 @@ class SpooferGUI:
             if is_app_closing: self.shutdown_complete_event.set()
             self.master.after(0, self.update_status_after_stop)
             return
-        if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+        if self.ui_initialized and self.main_frame.winfo_ismapped():
             self.status_label.configure(text="Proxy: Stopping...", text_color=self.COLORS["text_secondary"])
             self.proxy_status_indicator.configure(text_color=self.COLORS["text_secondary"])
             self.toggle_button.configure(state=tk.DISABLED)
@@ -1455,21 +1205,18 @@ class SpooferGUI:
     def wait_for_proxy_startup(self):
         global mitmproxy_thread_ref
         if mitmproxy_fully_running_event.is_set() and mitmproxy_thread_ref and mitmproxy_thread_ref.is_alive():
-            if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+            if self.ui_initialized and self.main_frame.winfo_ismapped():
                 self.status_label.configure(text="Proxy: Active", text_color=self.COLORS["primary_green"])
                 self.proxy_status_indicator.configure(text_color=self.COLORS["primary_green"])
                 self.toggle_button.configure(text="DEACTIVATE", fg_color="transparent", border_color=self.COLORS["stop_red"], text_color=self.COLORS["stop_red"], state=tk.DISABLED if self.auto_scan_var.get() else tk.NORMAL)
                 self.auto_scan_checkbox.configure(state=tk.NORMAL)
-
-            # --- NEW: Store the current name when the proxy becomes active ---
             self.name_at_proxy_start = self.new_name_var.get()
-
-            self.on_new_name_change() # Call to ensure addon name is synced
+            self.on_new_name_change()
             if not self.is_app_closing: self.shutdown_complete_event.set()
         elif mitmproxy_thread_ref and mitmproxy_thread_ref.is_alive():
             self.master.after(500, self.wait_for_proxy_startup)
         else:
-            if hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
+            if self.ui_initialized and self.main_frame.winfo_ismapped():
                 self.status_label.configure(text="Proxy: Failed", text_color=self.COLORS["stop_red"])
                 self.proxy_status_indicator.configure(text_color=self.COLORS["stop_red"])
                 self.toggle_button.configure(text="ACTIVATE", fg_color="transparent", border_color=self.COLORS["primary_green"], text_color=self.COLORS["primary_green"], state=tk.NORMAL if not self.auto_scan_var.get() else tk.DISABLED)
@@ -1480,15 +1227,26 @@ class SpooferGUI:
             if not self.is_app_closing: self.shutdown_complete_event.set()
 
     def on_new_name_change(self, *args):
-        if self._after_id: self.master.after_cancel(self._after_id)
+        # --- FIX: Crash when UI is not yet built ---
+        # If this is called before build_full_ui() completes, just return.
+        if not self.ui_initialized:
+            return
+
+        if self._after_id:
+            self.master.after_cancel(self._after_id)
         self._update_char_counter()
 
-        # --- REFINED LOGIC: Only show warning if name changes AFTER proxy is active ---
-        if self.is_proxy_running:
+        # --- REFINED LOGIC: Tie warning to game state, not proxy state ---
+        # Only show the warning if the game is currently running AND the user has changed the name.
+        if self.rl_process_active:
+            # Check if the name has been changed from what it was when the proxy started.
             if self.new_name_var.get() != self.name_at_proxy_start:
                 self.restart_warning_label.grid()
             else:
                 self.restart_warning_label.grid_remove()
+        else:
+            # If the game isn't running, the warning is irrelevant.
+            self.restart_warning_label.grid_remove()
 
         self._after_id = self.master.after(300, self._perform_name_update_and_save)
 
@@ -1500,7 +1258,7 @@ class SpooferGUI:
         save_config(self.app_config)
 
     def _update_char_counter(self, *args):
-        if hasattr(self, 'char_counter_label') and self.char_counter_label.winfo_exists():
+        if self.ui_initialized and self.char_counter_label.winfo_exists():
             char_count = len(self.new_name_var.get())
             self.char_counter_label.configure(text=f"{char_count}/{MAX_NAME_LENGTH}")
             if char_count > MAX_NAME_LENGTH: self.char_counter_label.configure(text_color=self.COLORS["stop_red"])
@@ -1523,48 +1281,34 @@ class SpooferGUI:
             self.tooltip_window = None
 
     def update_status_after_stop(self):
-        if self.ui_initialized and hasattr(self, 'status_label') and self.main_frame.winfo_ismapped():
-            # --- NEW: Hide the warning label and reset the stored name ---
+        if self.ui_initialized and self.main_frame.winfo_ismapped():
             self.restart_warning_label.grid_remove()
             self.name_at_proxy_start = None
-
             self.status_label.configure(text="Proxy: Inactive", text_color=self.COLORS["text_secondary"])
             self.proxy_status_indicator.configure(text_color=self.COLORS["status_idle"])
             self.toggle_button.configure(text="ACTIVATE", fg_color="transparent", border_color=self.COLORS["primary_green"], text_color=self.COLORS["primary_green"], state=tk.NORMAL if not self.auto_scan_var.get() else tk.DISABLED)
             self.auto_scan_checkbox.configure(state=tk.NORMAL)
 
-    # --- MODIFICATION: This function now ONLY updates the button's appearance. ---
     def sync_startup_ui(self):
-        """
-        Checks the actual Task Scheduler state and updates the UI button to match
-        reality. This is the single source of truth for the button's state.
-        It does NOT affect the auto-scan checkbox or config settings.
-        """
+        """Checks the actual Task Scheduler state and updates the UI button to match."""
         if not self.ui_initialized or self.is_syncing_ui:
             return
         self.is_syncing_ui = True
         print("DEBUG: Syncing startup UI state with Task Scheduler.", file=sys.stdout, flush=True)
-
         self.task_scheduler_button.configure(state=tk.DISABLED, text="...")
         self.auto_scan_checkbox.configure(state=tk.DISABLED)
-
         def _task():
             try:
                 is_enabled = is_task_scheduled()
                 print(f"DEBUG: Task is_scheduled result: {is_enabled}", file=sys.stdout, flush=True)
-
                 def _update_ui():
-                    # Update button's appearance based on scheduler state
                     if is_enabled:
                         self.task_scheduler_button.configure(text="Remove from Startup", border_color=self.COLORS["stop_red"], text_color=self.COLORS["stop_red"])
                     else:
                         self.task_scheduler_button.configure(text="Run automatically on Startup", border_color=self.COLORS["border"], text_color=self.COLORS["text_secondary"])
-
-                    # Re-enable controls
                     self.task_scheduler_button.configure(state=tk.NORMAL)
                     self.auto_scan_checkbox.configure(state=tk.NORMAL)
                     self.is_syncing_ui = False
-
                 self.master.after(0, _update_ui)
             except Exception as e:
                 print(f"ERROR: Failed during sync_startup_ui thread: {e}", file=sys.stderr, flush=True)
@@ -1572,24 +1316,16 @@ class SpooferGUI:
                     self.master.after(0, lambda: self.task_scheduler_button.configure(state=tk.NORMAL))
                     self.master.after(0, lambda: self.auto_scan_checkbox.configure(state=tk.NORMAL))
                 self.is_syncing_ui = False
-
         Thread(target=_task, daemon=True).start()
 
-    # --- MODIFICATION: This function no longer changes any config files. ---
     def toggle_task_scheduler_clicked(self):
-        """
-        Adds or removes the task from Task Scheduler without affecting any
-        other application settings.
-        """
+        """Adds or removes the task from Task Scheduler."""
         if self.is_syncing_ui:
             return
-
         self.task_scheduler_button.configure(state=tk.DISABLED)
         self.auto_scan_checkbox.configure(state=tk.DISABLED)
-
         def perform_task_scheduler_action():
             is_currently_enabled = is_task_scheduled()
-
             if is_currently_enabled:
                 if _remove_task_from_scheduler_sync():
                     self.master.after(0, lambda: messagebox.showinfo("Task Scheduler", "Removed from Windows startup."))
@@ -1600,42 +1336,24 @@ class SpooferGUI:
                     self.master.after(0, lambda: messagebox.showinfo("Task Scheduler", "Added to Windows startup."))
                 else:
                     self.master.after(0, lambda: messagebox.showerror("Task Scheduler Error", "Failed to add to startup. Please run as administrator."))
-
-            # Always re-sync the UI from the definitive source (Task Scheduler)
-            # to ensure the button is correct, regardless of action success.
             self.master.after(0, self.sync_startup_ui)
-
         Thread(target=perform_task_scheduler_action, daemon=True).start()
 
     def on_auto_scan_toggle(self, *args):
-        """
-        This function now ONLY starts or stops the background scanning thread
-        for the CURRENT SESSION and saves the checkbox state for future manual launches.
-        It does not affect the startup task.
-        """
+        """Starts or stops the background scanning thread for the current session."""
         if self.is_syncing_ui:
-            # Prevent this from running while the UI is syncing to avoid race conditions
             return
-
-        # Check for certificate before allowing auto-scan to be enabled
         if self.auto_scan_var.get() and not is_mitmproxy_cert_installed():
-            messagebox.showerror("Certificate Missing",
-                                 "The mitmproxy certificate is not installed. "
-                                 "Auto-attaching requires the certificate to be installed first.\n\n"
-                                 "Please run the first-time setup.")
-            self.auto_scan_var.set(False)  # Force the checkbox off
+            messagebox.showerror("Certificate Missing", "The mitmproxy certificate is not installed. Auto-attaching requires the certificate to be installed first.\n\nPlease run the first-time setup.")
+            self.auto_scan_var.set(False)
             return
-
-        # Save the checkbox state to the config for persistence across manual sessions
         self.app_config["auto_scan_on_startup"] = self.auto_scan_var.get()
         save_config(self.app_config)
-
         if self.auto_scan_var.get():
-            if self.ui_initialized and hasattr(self, 'toggle_button'):
+            if self.ui_initialized:
                 self.toggle_button.configure(state=tk.DISABLED)
                 self.rl_status_label.configure(text="Game: Scanning...", text_color=self.COLORS["text_secondary"])
                 self.rl_status_indicator.configure(text_color=self.COLORS["text_secondary"])
-
             self.auto_scan_stop_event.clear()
             if not self.auto_scan_thread or not self.auto_scan_thread.is_alive():
                 self.auto_scan_thread = Thread(target=self._auto_scan_rocket_league, daemon=True)
@@ -1644,7 +1362,7 @@ class SpooferGUI:
             self.auto_scan_stop_event.set()
             if self.is_proxy_running: self._stop_proxy_operations(is_app_closing=False)
             else: self.update_status_after_stop()
-            if self.ui_initialized and hasattr(self, 'rl_status_label'):
+            if self.ui_initialized:
                 self.rl_status_label.configure(text="Game: Auto-scan off", text_color=self.COLORS["text_secondary"])
                 self.rl_status_indicator.configure(text_color=self.COLORS["status_idle"])
                 self.toggle_button.configure(state=tk.NORMAL)
@@ -1653,15 +1371,17 @@ class SpooferGUI:
         time.sleep(SCAN_INTERVAL_SECONDS * 2)
         while not self.auto_scan_stop_event.is_set():
             current_rl_status = is_process_running(ROCKET_LEAGUE_PROCESS_NAME)
-            if self.ui_initialized and hasattr(self, 'rl_status_label'):
-                if current_rl_status != self.rl_process_active:
-                    self.rl_process_active = current_rl_status
+            if self.rl_process_active != current_rl_status:
+                self.rl_process_active = current_rl_status
+                if self.ui_initialized: # Only update UI if it exists
                     if current_rl_status:
                         self.master.after(0, lambda: self.rl_status_label.configure(text="Game: Running", text_color=self.COLORS["primary_green"]))
                         self.master.after(0, lambda: self.rl_status_indicator.configure(text_color=self.COLORS["primary_green"]))
                     else:
                         self.master.after(0, lambda: self.rl_status_label.configure(text="Game: Not Running", text_color=self.COLORS["text_secondary"]))
                         self.master.after(0, lambda: self.rl_status_indicator.configure(text_color=self.COLORS["status_idle"]))
+                        # --- HIDE WARNING WHEN GAME CLOSES ---
+                        self.master.after(0, lambda: self.restart_warning_label.grid_remove())
 
             if current_rl_status and not self.is_proxy_running: self.master.after(0, self._start_proxy_operations, False)
             elif not current_rl_status and self.is_proxy_running: self.master.after(0, self._stop_proxy_operations, False)
@@ -1692,15 +1412,9 @@ class SpooferGUI:
             self.tray_icon.stop()
             self.tray_icon = None
             self.tray_thread = None
-
-        # Build the UI if this is the first time the window is being shown
         if not self.ui_initialized:
             self.master.after(0, self.build_full_ui)
-            # After building the UI, we must also run the logic that decides
-            # whether to show the setup screen or the main screen.
             self.master.after(100, self._check_and_show_initial_screen)
-
-        # Make the window visible with a more robust sequence
         self.master.after(200, self._force_show)
 
     def _force_show(self):
@@ -1710,9 +1424,6 @@ class SpooferGUI:
         self.master.lift()
         self.master.state('normal')
         self.master.attributes("-alpha", 1.0)
-
-        # --- LOCK SIZE AND RE-CENTER ---
-        # Explicitly set the size to 480x600 and re-center on restore
         window_width, window_height = 480, 600
         self.master.update_idletasks()
         screen_width = self.master.winfo_screenwidth()
@@ -1720,7 +1431,6 @@ class SpooferGUI:
         x = (screen_width // 2) - (window_width // 2)
         y = (screen_height // 2) - (window_height // 2)
         self.master.geometry(f'{window_width}x{window_height}+{x}+{y}')
-
         self.master.attributes('-topmost', 1)
         self.master.focus_force()
         self.master.after(100, lambda: self.master.attributes('-topmost', 0))
@@ -1771,9 +1481,8 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         try:
             import ctypes
-            if not ctypes.windll.shell32.IsUserAnAdmin(): # Corrected function name
+            if not ctypes.windll.shell32.IsUserAnAdmin():
                 messagebox.showwarning("Administrator Privileges Required", "Please run as administrator to manage system proxy settings.")
-                # Ensure logs are closed and streams reset before exiting
                 if log_stdout_file and not log_stdout_file.closed: log_stdout_file.close()
                 sys.stdout = original_stdout
                 sys.stderr = original_stderr
