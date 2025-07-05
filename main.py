@@ -105,7 +105,7 @@ mitmproxy_thread_ref = None
 # APP_DIR is for user-writable files like configs, logs, and first-run flags.
 # It should point to a user-specific data directory, not the executable's directory.
 APP_NAME = "RLNameSpoofer"
-APP_VERSION = "1.0.0" # New version number
+APP_VERSION = "1.0.1"
 if sys.platform == "win32":
     APP_DIR = os.path.join(os.getenv('APPDATA'), APP_NAME)
 elif sys.platform == "darwin":
