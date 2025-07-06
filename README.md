@@ -16,7 +16,6 @@ Free yourself from the oppressive shackles of Epic Games and name yourself whate
 
 ✅ Visible to everyone in the lobby!!  
 
-
 ✅ Automatically detect when Rocket League is running (When enabled in the GUI)
 
 ✅ Open minimised on startup for truly "Set-and-forget" spoofing (When enabled in the GUI)
@@ -25,10 +24,20 @@ Free yourself from the oppressive shackles of Epic Games and name yourself whate
 
 ## Install Instructions
 * Download or compile the exe of the lastest version
+
+  ![image](https://github.com/user-attachments/assets/1b10bcf4-03cb-4748-a663-1ae438ac618e)
+
 * Follow the setup instructions for installing a mitmproxy certificate to your machine [https://mitmproxy.org/](https://mitmproxy.org/)
+
+  ![image](https://github.com/user-attachments/assets/d75f00fd-3c8e-49e6-88dc-3e6e1b76199a)
+
 * Choose a name, and activate the spoofer (or select the Automatic Detection mode)
+
+![image](https://github.com/user-attachments/assets/5989156b-43f0-4567-8d25-9c43bcc7de89)
+
 * Open Rocket League and enjoy your new name!! 😎
 
+![image](https://github.com/user-attachments/assets/f595a86f-ae06-4455-aa42-ac343624d3dd)
 
 ## Socials
 Feel free to join the Kakapo Labs [Discord](https://discord.gg/hXAVPfYHUN) for any future update announcements or support! ^^
