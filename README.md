@@ -1,11 +1,11 @@
 # Kakapo Labs Rocket League Spoofer GUI
 ![Product shot 1](https://github.com/user-attachments/assets/b9074c7d-6f52-4379-af97-0ea6b3e288eb)
-![image](https://github.com/user-attachments/assets/f60812b7-7a6f-4e58-995e-63e71c8fd5c5)
-
 
 ## ⬇️ Downloads ⬇️
 Download the latest release by either clicking [HERE](https://github.com/Kakapo-Labs/RL-Spoofer-GUI/releases) or by selecting the latest version from the releases tab.
 (Or feel free to compile your own version using the source code provided! I never endorse running exe's you dont understand.)  
+
+![image](https://github.com/user-attachments/assets/f60812b7-7a6f-4e58-995e-63e71c8fd5c5)
 
 ## Features
 Free yourself from the oppressive shackles of Epic Games and name yourself whatever you want, whenever you want!!
