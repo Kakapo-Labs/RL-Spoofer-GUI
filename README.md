@@ -1,4 +1,5 @@
 # Kakapo Labs Rocket League Spoofer GUI
+![Product shot 1](https://github.com/user-attachments/assets/b9074c7d-6f52-4379-af97-0ea6b3e288eb)
 ![image](https://github.com/user-attachments/assets/f60812b7-7a6f-4e58-995e-63e71c8fd5c5)
 
 
