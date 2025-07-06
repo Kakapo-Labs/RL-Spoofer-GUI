@@ -33,7 +33,7 @@ Free yourself from the oppressive shackles of Epic Games and name yourself whate
 
 * Choose a name, and activate the spoofer (or select the Automatic Detection mode)
 
-![image](https://github.com/user-attachments/assets/5989156b-43f0-4567-8d25-9c43bcc7de89)
+![image](https://github.com/user-attachments/assets/1f690699-b900-4686-9fff-79f623f4eaf0)
 
 * Open Rocket League and enjoy your new name!! 😎
 
