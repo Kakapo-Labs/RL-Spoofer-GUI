@@ -1,4 +1,4 @@
-# Kakapon Labs Rocket League Spoofer GUI
+# Kakapo Labs Rocket League Spoofer GUI
 
 
 ## ⬇️ Downloads ⬇️
