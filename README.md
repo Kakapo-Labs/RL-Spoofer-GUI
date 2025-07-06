@@ -3,7 +3,9 @@
 
 ## ⬇️ Downloads ⬇️
 Download the latest release by either clicking [HERE](https://github.com/Kakapo-Labs/RL-Spoofer-GUI/releases) or by selecting the latest version from the releases tab.
+
 (Or feel free to compile your own version using the source code provided! I never endorse running exe's you dont understand.)  
+
 
 ![image](https://github.com/user-attachments/assets/f60812b7-7a6f-4e58-995e-63e71c8fd5c5)
 
