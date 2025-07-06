@@ -52,3 +52,7 @@ Free yourself from the oppressive shackles of Epic Games and name yourself whate
 
 ## Socials
 Feel free to join the Kakapo Labs [Discord](https://discord.gg/hXAVPfYHUN) for any future update announcements or support! ^^
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/21b7c2ab-9fba-4f7c-860d-5710dd9844d6" alt="image">
+</p>
+
