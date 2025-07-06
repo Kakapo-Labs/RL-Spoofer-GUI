@@ -7,3 +7,5 @@ Download the latest release by either clicking [HERE](https://github.com/Kakapo-
 ## Features
 
 ## Install Instructions
+
+## Socials
