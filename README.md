@@ -1,4 +1,4 @@
-# ✨ Kakapo Labs Rocket League Spoofer GUI ✨
+# ✨ Rocket League Spoofer GUI ✨
 ![Product shot 1](https://github.com/user-attachments/assets/b9074c7d-6f52-4379-af97-0ea6b3e288eb)
 
 ## ⬇️ Downloads ⬇️
