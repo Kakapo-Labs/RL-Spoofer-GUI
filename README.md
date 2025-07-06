@@ -9,10 +9,16 @@ Download the latest release by either clicking [HERE](https://github.com/Kakapo-
 
 ## Features
 Free yourself from the oppressive shackles of Epic Games and name yourself whatever you want, whenever you want!!
+
 ✅ Spoof any name you like, even those taken by other Epic players.
+
 ✅ Visible to everyone in the lobby!!  
+
+
 ✅ Automatically detect when Rocket League is running (When enabled in the GUI)
+
 ✅ Open minimised on startup for truly "Set-and-forget" spoofing (When enabled in the GUI)
+
 ✅ Entirely open source (I despise gatekeeping)
 
 ## Install Instructions
