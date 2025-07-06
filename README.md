@@ -1,11 +1,24 @@
-# Kakapo Labs Rocket League Spoofer GUI
+![image](https://github.com/user-attachments/assets/f60812b7-7a6f-4e58-995e-63e71c8fd5c5)# Kakapo Labs Rocket League Spoofer GUI
 
 
 ## ⬇️ Downloads ⬇️
-Download the latest release by either clicking [HERE](https://github.com/Kakapo-Labs/RL-Spoofer-GUI/releases) or by selecting the latest version from the releases tab  
+Download the latest release by either clicking [HERE](https://github.com/Kakapo-Labs/RL-Spoofer-GUI/releases) or by selecting the latest version from the releases tab.
+(Or feel free to compile your own version using the source code provided! I never endorse running exe's you dont understand.)  
 
 ## Features
+Free yourself from the oppressive shackles of Epic Games and name yourself whatever you want, whenever you want!!
+✅ Spoof any name you like, even those taken by other Epic players.
+✅ Visible to everyone in the lobby!!  
+✅ Automatically detect when Rocket League is running (When enabled in the GUI)
+✅ Open minimised on startup for truly "Set-and-forget" spoofing (When enabled in the GUI)
+✅ Entirely open source (I despise gatekeeping)
 
 ## Install Instructions
+* Download or compile the exe of the lastest version
+* Follow the setup instructions for installing a mitmproxy certificate to your machine [https://mitmproxy.org/](https://mitmproxy.org/)
+* Choose a name, and activate the spoofer (or select the Automatic Detection mode)
+* Open Rocket League and enjoy your new name!! 😎
+
 
 ## Socials
+Feel free to join the Kakapo Labs [Discord](https://discord.gg/hXAVPfYHUN) for any future update announcements or support! ^^
